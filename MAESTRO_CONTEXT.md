@@ -82,3 +82,18 @@ These were done in the old workspace; they are not guaranteed present in this fr
 3. Inspect `maestro-studio` actual state against remembered fixes.
 4. Recreate missing scripts/cron/env only after verifying repo state.
 5. Run smallest safe verification: health check/static tests first, then visible desktop run, then mobile/Waydroid only when needed.
+
+## Restored cron state on 2026-05-11
+
+Registered OpenClaw cron jobs in this fresh workspace:
+
+- `daily-maestro-studio-chromastudio-maxstudio-tests` — `0 7 * * *` Asia/Calcutta, isolated agent, desktop Chrome daily tests.
+- `daily-maestro-generation-rotation-chromastudio-maxstudio` — `30 8 * * *` Asia/Calcutta, isolated agent, live desktop generation rotation with Internal Mode guard.
+- `maestro-self-healing-repair-agent` — `30 15 * * *` Asia/Calcutta, isolated repair agent for generation failures.
+- `run-inspector-maestro-cron-health-check` — `17 */6 * * *` Asia/Calcutta, isolated health check, no live tests.
+
+Discord webhook config is stored at `/root/.openclaw/workspace/state/maestro-discord.env` with restricted permissions. Never print it.
+
+Waydroid/mobile testing is known from history but intentionally not included in the desktop daily cron path. Keep Waydroid/mobile captesting separate unless Prince explicitly asks for mobile cron.
+
+Latest health verification passed: `/root/.openclaw/workspace/state/maestro-cron-health/20260511-112418`.
