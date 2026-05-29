@@ -31,14 +31,14 @@ Current fresh workspace needs these cloned with valid GitHub auth.
 
 Commit watcher now supports branch-aware staging URLs. When a `dev` branch commit is detected, the queue entry includes the staging `testUrl` from `BRANCH_URLS` in `commit-watcher-update.py`.
 
-| Repo | Dev Branch URL |
-|------|---------------|
-| chroma-studio-frontend-nextjs | https://style-transfer-git-dev-nextbasecores-projects.vercel.app |
-| max-v2 | https://max-v2-git-dev-nextbasecores-projects.vercel.app |
-| remix-studio-nextjs | https://remixai-git-dev-nextbasecores-projects.vercel.app |
-| faceswapper-ai | https://faceswapper-ai-git-dev-nextbasecores-projects.vercel.app |
-| ampere-sh | https://ampere-sh-5px3-git-dev-paradoxs-projects-657e7e56.vercel.app |
-| deepswapper-ai-nextjs | (none yet — falls back to production) |
+| Repo | Dev Branch URL | Production URL |
+|------|---------------|----------------|
+| chroma-studio-frontend-nextjs | https://style-transfer-git-dev-nextbasecores-projects.vercel.app | https://www.chromastudio.ai |
+| max-v2 | https://max-v2-git-dev-nextbasecores-projects.vercel.app | https://www.maxstudio.ai |
+| remix-studio-nextjs | https://remixai-git-dev-nextbasecores-projects.vercel.app | https://remixai.io |
+| faceswapper-ai | https://faceswapper-ai-git-dev-nextbasecores-projects.vercel.app | https://faceswapper.ai |
+| ampere-sh | https://ampere-sh-5px3-git-dev-paradoxs-projects-657e7e56.vercel.app | https://ampere.sh |
+| deepswapper-ai-nextjs | *(none yet — falls back to production)* | https://www.deepswapper.com |
 
 **Daily cron jobs remain on production URLs.** Only commit-watcher triggered dev branch testing uses staging URLs.
 

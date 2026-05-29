@@ -26,27 +26,27 @@ REPOS = [
 # Branch-Aware URL Config — production + dev staging URLs
 BRANCH_URLS = {
     "chroma-studio-frontend-nextjs": {
-        "main": "https://app.chromastudio.ai",
+        "main": "https://www.chromastudio.ai",
         "dev": "https://style-transfer-git-dev-nextbasecores-projects.vercel.app"
     },
     "max-v2": {
-        "master": "https://app.maxstudio.ai",
+        "master": "https://www.maxstudio.ai",
         "dev": "https://max-v2-git-dev-nextbasecores-projects.vercel.app"
     },
     "remix-studio-nextjs": {
-        "main": "https://app.remixai.ai",
+        "main": "https://remixai.io",
         "dev": "https://remixai-git-dev-nextbasecores-projects.vercel.app"
     },
     "deepswapper-ai-nextjs": {
-        "main": "https://app.deepswapper.ai",
+        "main": "https://www.deepswapper.com",
         "dev": None  # Add staging URL when available
     },
     "faceswapper-ai": {
-        "maestro-test": "https://app.faceswapper.ai",
+        "maestro-test": "https://faceswapper.ai",
         "dev": "https://faceswapper-ai-git-dev-nextbasecores-projects.vercel.app"
     },
     "ampere-sh": {
-        "main": "https://app.ampere.ai",
+        "main": "https://ampere.sh",
         "dev": "https://ampere-sh-5px3-git-dev-paradoxs-projects-657e7e56.vercel.app"
     }
 }
