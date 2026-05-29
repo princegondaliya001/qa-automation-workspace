@@ -39,7 +39,7 @@ BRANCH_URLS = {
     },
     "deepswapper-ai-nextjs": {
         "main": "https://www.deepswapper.com",
-        "dev": None  # Add staging URL when available
+        "dev": "https://deepswapper-ai-git-dev-sanketkheni01s-projects.vercel.app"
     },
     "faceswapper-ai": {
         "maestro-test": "https://faceswapper.ai",

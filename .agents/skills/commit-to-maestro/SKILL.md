@@ -35,7 +35,7 @@ Maps repo names to their Maestro folder, base URL, and project ID header.
 | `max-v2` | `maxstudio` | `https://www.maxstudio.ai` | `https://max-v2-git-dev-nextbasecores-projects.vercel.app` | `maxStudio` |
 | `remix-studio-nextjs` | `remixai` | `https://remixai.io` | `https://remixai-git-dev-nextbasecores-projects.vercel.app` | `remixAi` |
 | `faceswapper-ai` | `faceswapper` | `https://faceswapper.ai` | `https://faceswapper-ai-git-dev-nextbasecores-projects.vercel.app` | `faceSwapper` |
-| `deepswapper-ai-nextjs` | `deepswapper` | `https://www.deepswapper.com` | *(none yet)* | `deepSwapper` |
+| `deepswapper-ai-nextjs` | `deepswapper` | `https://www.deepswapper.com` | `https://deepswapper-ai-git-dev-sanketkheni01s-projects.vercel.app` | `deepSwapper` |
 | `ampere-sh` | `ampere` | `https://ampere.sh` | `https://ampere-sh-5px3-git-dev-paradoxs-projects-657e7e56.vercel.app` | `ampere` |
 
 > **Daily cron jobs always use production URLs.** The `testUrl` field is only for commit-watcher triggered testing.
