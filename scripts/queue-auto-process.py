@@ -92,6 +92,18 @@ def build_task_for_subagent(entry):
 - **Discord Channel:** {discord_channel}
 
 ## Your Mission
+
+### Step 0: ALWAYS pull latest first (CRITICAL)
+```bash
+cd {repo_path}
+# Fetch and pull the latest changes for the detected branch
+git fetch origin {branch}
+git pull origin {branch}
+# Verify we are at the new commit
+git log -1 --format="%H %s"
+```
+This ensures you are analyzing the ACTUAL latest code, not stale local copy.
+
 1. Read the git diff between old and new commit:
    ```bash
    cd {repo_path}
@@ -105,12 +117,22 @@ def build_task_for_subagent(entry):
    - For dev branches, use this staging URL in Maestro flows and temp tests
    - For main/master branches, use the production URL
 
-3. If a test URL is provided, update the Maestro config before testing:
-   ```bash
-   cd {maestro_path}/{maestro_folder}
-   sed -i "s|baseUrl: .*|baseUrl: {entry.get('testUrl', 'production')}|" config/config.yaml
+3. If a test URL is provided, **do NOT modify config.yaml**. Use one of these approaches:
+   - Pass `--env baseUrl={entry.get('testUrl', 'production')}` when running `maestro test`
+   - Use inline `openLink: "{entry.get('testUrl', 'production')}?__maestroInternalMode=1"` in the temp test YAML
+   - NEVER use `sed` to permanently change config.yaml — staging URLs must not leak into committed config
+
+   Example temp test with inline URL:
+   ```yaml
+   appId: web
+   ---
+   - openLink: "{entry.get('testUrl', 'production')}?__maestroInternalMode=1"
    ```
-   (Or pass `--env baseUrl={entry.get('testUrl', 'production')}` when running maestro test)
+
+   Example running with env override:
+   ```bash
+   maestro test temp-test.yaml --env baseUrl={entry.get('testUrl', 'production')}
+   ```
 
 4. Analyze what changed and plan Maestro updates for `{maestro_folder}/` in `{maestro_path}`
 
@@ -125,6 +147,9 @@ def build_task_for_subagent(entry):
 8. Push Maestro changes to GitHub:
    ```bash
    cd {maestro_path}
+   # ⚠️ NEVER stage config.yaml if it contains a staging URL.
+   # If you accidentally changed config.yaml, revert it first:
+   #   git checkout -- <maestro_folder>/config/config.yaml
    git add <changed files only>
    git commit -m "test: update Maestro for {repo}/{branch} {short_hash} - {commit_msg}"
    git push origin main

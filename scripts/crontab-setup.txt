@@ -1,0 +1,13 @@
+# OpenClaw Workspace Cron Jobs
+# Paste this into your crontab with: crontab -e
+# Or load it with: cat crontab-setup.txt | crontab -
+
+# Commit Watcher: Check frontend repos every 1 hour for new commits
+# Also auto-processes simple changes (header labels, etc.)
+0 * * * * /root/.openclaw/workspace/scripts/commit-watcher.sh >> /root/.openclaw/workspace/logs/commit-watcher.log 2>&1
+
+# Daily All-Projects Maestro Tests: Run every day at 8 PM IST (14:30 UTC)
+30 14 * * * /root/.openclaw/workspace/scripts/daily-maestro-tests.sh >> /root/.openclaw/workspace/logs/daily-tests.log 2>&1
+
+# Safe Cleanup: Remove old temp files, screenshots, logs daily at 2 AM
+0 2 * * * /root/.openclaw/workspace/scripts/safe-cleanup.sh >> /root/.openclaw/workspace/logs/safe-cleanup.log 2>&1
