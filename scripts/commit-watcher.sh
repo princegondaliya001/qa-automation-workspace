@@ -1,4 +1,5 @@
 #!/bin/bash
+source /root/.openclaw/workspace/scripts/access-control.sh || exit 1
 # commit-watcher.sh
 # Runs every hour via cron. Checks all frontend repos for new commits.
 # Uses Python helper for robust queue/state management.

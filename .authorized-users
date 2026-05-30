@@ -1,0 +1,6 @@
+# Authorized users for testing automation
+# Only these users can run critical scripts
+# To add: echo 'username' >> .authorized-users
+prince
+root
+qa-tester

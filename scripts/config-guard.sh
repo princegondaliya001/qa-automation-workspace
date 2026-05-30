@@ -1,4 +1,5 @@
 #!/bin/bash
+source /root/.openclaw/workspace/scripts/access-control.sh || exit 1
 # Pre-commit guard: prevents staging URLs from being committed to maestro-studio
 # Usage: ./scripts/config-guard.sh
 # Exit 1 if any product suite config.yaml contains a staging URL, 0 otherwise

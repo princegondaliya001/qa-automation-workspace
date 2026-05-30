@@ -93,6 +93,22 @@ def build_task_for_subagent(entry):
 
 ## Your Mission
 
+## ⚠️ SAFETY RULES — You CANNOT:
+1. ❌ Delete or modify files in credentials/ directory
+2. ❌ Modify frontend repos (nextbasecore/*) — READ ONLY
+3. ❌ Delete .sh, .py, .json, .yaml script files
+4. ❌ Push to frontend main/master branches
+5. ❌ Expose secrets in Discord or commits
+6. ❌ Run rm -rf on any directory
+7. ❌ Modify openclaw.json or system configs
+
+## ✅ You CAN:
+1. ✅ Read git diffs from frontend repos
+2. ✅ Update Maestro YAML flows in maestro-studio/
+3. ✅ Run temp tests with --env baseUrl
+4. ✅ Commit to maestro-studio main branch
+5. ✅ Create temporary test files (delete after)
+
 ### Step 0: ALWAYS pull latest first (CRITICAL)
 ```bash
 cd {repo_path}

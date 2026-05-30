@@ -1,4 +1,5 @@
 #!/bin/bash
+source /root/.openclaw/workspace/scripts/access-control.sh || exit 1
 # Usage: ./scripts/staging-temp-test.sh <maestro_folder> <testUrl> <flow_path>
 # Runs a Maestro flow against staging WITHOUT touching config.yaml
 # Example: ./scripts/staging-temp-test.sh chromastudio https://style-transfer-git-dev-nextbasecores-projects.vercel.app chromastudio/tests/temp-test.yaml

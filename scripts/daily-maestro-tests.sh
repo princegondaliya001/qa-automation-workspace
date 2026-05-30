@@ -1,3 +1,5 @@
+#!/bin/bash
+source /root/.openclaw/workspace/scripts/access-control.sh || exit 1
 # Daily All-Projects Maestro Test Runner
 # Runs every day at 8 PM IST (14:30 UTC)
 # Tests all production products with Maestro CLI — BOTH Desktop AND Mobile
