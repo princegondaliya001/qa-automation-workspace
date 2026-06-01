@@ -230,6 +230,40 @@ def count_modified_files(diff_stats):
     return count
 
 
+def parse_test_stats(text):
+    """Robustly parse pass/fail counts from result text."""
+    import re
+    total = passed = failed = 0
+    if not text:
+        return total, passed, failed
+    
+    # Pattern: "5/7 passed" or "5 passed out of 7"
+    m = re.search(r'(\d+)[/\s]+(?:out\s+of\s+)?(\d+)\s*(?:passed|tests?)', text, re.I)
+    if m:
+        passed = int(m.group(1))
+        total = int(m.group(2))
+        failed = total - passed
+    
+    # Pattern: "2 failed" or "failures: 2"
+    m2 = re.search(r'(\d+)\s*(?:failed|failure|fail)', text, re.I)
+    if m2:
+        failed = int(m2.group(1))
+    
+    # Pattern: "passed: 5, failed: 2"
+    m3 = re.search(r'passed[:\s]+(\d+)', text, re.I)
+    m4 = re.search(r'failed[:\s]+(\d+)', text, re.I)
+    if m3:
+        passed = int(m3.group(1))
+    if m4:
+        failed = int(m4.group(1))
+    
+    # If we have both passed and failed, calculate total
+    if passed > 0 or failed > 0:
+        total = max(total, passed + failed)
+    
+    return total, passed, failed
+
+
 def build_summary_message(entry, result_text="", technical=True):
     """
     Build Discord message. 
@@ -274,6 +308,20 @@ def build_summary_message(entry, result_text="", technical=True):
             lines.append(f"")
             lines.append(f"**Maestro Update Result:**")
             lines.append(result_text)
+        
+        # Extract and show test stats in technical format too
+        tests_total = entry.get('testsTotal', 0)
+        tests_passed = entry.get('testsPassed', 0)
+        tests_failed = entry.get('testsFailed', 0)
+        if not tests_total and result_text:
+            parsed_total, parsed_passed, parsed_failed = parse_test_stats(result_text)
+            if parsed_total > 0:
+                tests_total = parsed_total
+                tests_passed = parsed_passed
+                tests_failed = parsed_failed
+        if tests_total > 0:
+            lines.append(f"")
+            lines.append(f"**Test Results:** ✅ {tests_passed} passed | ❌ {tests_failed} failed (total: {tests_total})")
         
         lines.append(f"")
         lines.append(f"**Status:** {status}")
@@ -332,15 +380,11 @@ def build_summary_message(entry, result_text="", technical=True):
         
         # Try to parse from result_text if not in entry
         if not tests_total and result_text:
-            import re
-            m = re.search(r'(\d+)/(\d+)\s*(?:passed|tests?)', result_text, re.I)
-            if m:
-                tests_passed = int(m.group(1))
-                tests_total = int(m.group(2))
-                tests_failed = tests_total - tests_passed
-            m2 = re.search(r'(\d+)\s*failed', result_text, re.I)
-            if m2:
-                tests_failed = int(m2.group(1))
+            parsed_total, parsed_passed, parsed_failed = parse_test_stats(result_text)
+            if parsed_total > 0:
+                tests_total = parsed_total
+                tests_passed = parsed_passed
+                tests_failed = parsed_failed
         
         lines = [
             f"📦 Commit Update — {repo.title()}",
