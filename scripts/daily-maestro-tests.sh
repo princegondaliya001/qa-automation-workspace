@@ -14,6 +14,19 @@ STATE_DIR="$WORKSPACE_DIR/state"
 LOGS_DIR="$WORKSPACE_DIR/logs"
 DISCORD_CHANNEL="1498991059227774986"
 
+# Ensure Xvfb display is available for desktop Chrome tests
+CHROME_WRAPPER_DIR="$STATE_DIR/bin"
+if [ -d "$CHROME_WRAPPER_DIR" ]; then
+    export PATH="$CHROME_WRAPPER_DIR:$PATH"
+fi
+export DISPLAY="${DISPLAY:-:99}"
+if ! pgrep -f "Xvfb ${DISPLAY}( |$)" > /dev/null 2>&1; then
+    if command -v Xvfb > /dev/null 2>&1; then
+        nohup Xvfb "$DISPLAY" -screen 0 1440x1000x24 -ac > "$LOGS_DIR/xvfb-${DISPLAY#:}.log" 2>&1 &
+        sleep 2
+    fi
+fi
+
 # Create timestamp for this run
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 RUN_DIR="$STATE_DIR/maestro-daily-tests/$TIMESTAMP"
@@ -51,6 +64,8 @@ run_tests() {
     local FOLDER=$1
     local URL=$2
     local PRODUCT_NAME=$3
+    local DESKTOP_SMOKE=""
+    local MOBILE_SMOKE=""
     
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
@@ -61,7 +76,7 @@ run_tests() {
     echo ""
     echo "  [DESKTOP] $PRODUCT_NAME"
     if [ -d "$MAESTRO_REPO/$FOLDER/flows/masters" ]; then
-        DESKTOP_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/flows/masters" -name "*master-auth*" -o -name "*master-home*" -o -name "*master-smoke*" | grep -v "ios\|mobile" | head -1)
+        DESKTOP_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/flows/masters" -type f \( -name "*master-auth*" -o -name "*master-home*" -o -name "*master-smoke*" \) | grep -v -E "ios|mobile" | head -1)
         
         if [ -n "$DESKTOP_SMOKE" ]; then
             echo "    Running: $(basename "$DESKTOP_SMOKE")"
@@ -82,54 +97,33 @@ run_tests() {
     # --- MOBILE TEST ---
     echo ""
     echo "  [MOBILE] $PRODUCT_NAME"
+    MOBILE_SMOKE=""
     
-    # Check for mobile-specific folder
-    if [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" ]; then
-        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" -name "*master*" | head -1)
-        if [ -n "$MOBILE_SMOKE" ]; then
-            echo "    Running: $(basename "$MOBILE_SMOKE")"
-            if "$MAESTRO_BIN" test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
-                echo "    ✅ MOBILE PASS"
-                MOBILE_PASS=$((MOBILE_PASS + 1))
-            else
-                echo "    ❌ MOBILE FAIL"
-                MOBILE_FAIL=$((MOBILE_FAIL + 1))
-            fi
+    # Prefer Android/Waydroid tests over iOS Safari
+    if [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" ]; then
+        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" -type f \( -name "*waydroid*" -o -name "*android*" \) | head -1)
+    fi
+    if [ -z "$MOBILE_SMOKE" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" ]; then
+        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" -type f \( -name "*waydroid*" -o -name "*android*" \) | head -1)
+    fi
+    if [ -z "$MOBILE_SMOKE" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" ]; then
+        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" -type f \( -name "*smoke*" \) | head -1)
+    fi
+    if [ -z "$MOBILE_SMOKE" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" ]; then
+        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" -type f -name "*master*" | head -1)
+    fi
+    
+    if [ -n "$MOBILE_SMOKE" ]; then
+        echo "    Running: $(basename "$MOBILE_SMOKE")"
+        if "$MAESTRO_BIN" test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
+            echo "    ✅ MOBILE PASS"
+            MOBILE_PASS=$((MOBILE_PASS + 1))
         else
-            echo "    ⚠️ No mobile master test found"
-        fi
-    elif [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" ]; then
-        # Try scenario-based mobile test
-        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" -name "*smoke*" -o -name "*waydroid*" | head -1)
-        if [ -n "$MOBILE_SMOKE" ]; then
-            echo "    Running: $(basename "$MOBILE_SMOKE")"
-            if "$MAESTRO_BIN" test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
-                echo "    ✅ MOBILE PASS"
-                MOBILE_PASS=$((MOBILE_PASS + 1))
-            else
-                echo "    ❌ MOBILE FAIL"
-                MOBILE_FAIL=$((MOBILE_FAIL + 1))
-            fi
-        else
-            echo "    ⚠️ No mobile scenario test found"
-        fi
-    elif [ -f "$MAESTRO_REPO/$FOLDER/tests/*mobile*smoke.yaml" ]; then
-        # Fallback to tests/ folder mobile smoke
-        MOBILE_SMOKE=$(ls "$MAESTRO_REPO/$FOLDER/tests/"*mobile*smoke.yaml 2>/dev/null | head -1)
-        if [ -n "$MOBILE_SMOKE" ]; then
-            echo "    Running: $(basename "$MOBILE_SMOKE")"
-            if "$MAESTRO_BIN" test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
-                echo "    ✅ MOBILE PASS"
-                MOBILE_PASS=$((MOBILE_PASS + 1))
-            else
-                echo "    ❌ MOBILE FAIL"
-                MOBILE_FAIL=$((MOBILE_FAIL + 1))
-            fi
-        else
-            echo "    ⚠️ No mobile smoke test found"
+            echo "    ❌ MOBILE FAIL"
+            MOBILE_FAIL=$((MOBILE_FAIL + 1))
         fi
     else
-        echo "    ⚠️ No mobile flows folder"
+        echo "    ⚠️ No mobile test found"
     fi
     
     TOTAL_PRODUCTS=$((TOTAL_PRODUCTS + 1))
