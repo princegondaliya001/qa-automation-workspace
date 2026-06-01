@@ -364,10 +364,22 @@ def build_summary_message(entry, result_text="", technical=True):
             lines.append(f"**Tests Run:** {tests_total} total | ✅ {tests_passed} passed | ❌ {tests_failed} failed")
         
         if result_text:
-            # Keep it brief for non-tech people
+            # Keep it brief for non-tech people, but extract PR URL if present
             brief = result_text.strip().split('\n')[0][:120]
             lines.append(f"")
             lines.append(f"**Notes:** {brief}")
+            
+            # Extract PR URL if present in result_text (e.g., "PR created: https://github.com/...")
+            import re
+            pr_match = re.search(r'https://github\.com/[^\s]+/pull/\d+', result_text)
+            if pr_match:
+                pr_url = pr_match.group(0)
+                lines.append(f"")
+                lines.append(f"**PR:** {pr_url}")
+        
+        # Always add @Dixit Savaliya mention to summary webhook
+        lines.append(f"")
+        lines.append(f"**Assignee:** @Dixit Savaliya")
         
         return '\n'.join(lines)
 
@@ -436,6 +448,18 @@ def build_test_failure_message(project, test_type, error_type, description, acti
         if action_taken:
             lines.append(f"")
             lines.append(f"**Action Taken:** {action_taken}")
+        
+        # Extract PR URL if present in description
+        import re
+        pr_match = re.search(r'https://github\.com/[^\s]+/pull/\d+', description)
+        if pr_match:
+            lines.append(f"")
+            lines.append(f"**PR:** {pr_match.group(0)}")
+        
+        # Always add @Dixit Savaliya mention to summary webhook
+        lines.append(f"")
+        lines.append(f"**Assignee:** @Dixit Savaliya")
+        
         return '\n'.join(lines)
 
 
