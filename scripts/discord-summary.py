@@ -10,6 +10,8 @@ Usage:
     - Reads queue entry and SENDS both technical + summary formats to respective webhooks
   python3 discord-summary.py preview <queue_entry_id> [result_text]
     - Preview both message formats without sending
+  python3 discord-summary.py daily <date> <desktop_pass> <desktop_fail> <mobile_pass> <mobile_fail> <total_products> <run_dir> [log_dir]
+    - Send daily test results to both webhooks (technical to #1, summary to #2)
   python3 discord-summary.py custom <message_text> [--webhook=1|2|both]
     - Send a custom message to specified webhook(s)
 """
@@ -18,6 +20,7 @@ import json
 import sys
 import os
 import subprocess
+from datetime import datetime, timezone
 
 QUEUE_FILE = "/root/.openclaw/workspace/state/commit-queue.json"
 ENV_FILE = "/root/.openclaw/workspace/state/maestro-discord.env"
@@ -295,15 +298,70 @@ def build_summary_message(entry, result_text="", technical=True):
         else:
             result_label = f"{status_emoji} {status.title()}"
         
+        # Format date from entry or use current time
+        detected_at = entry.get('detectedAt', '')
+        if detected_at:
+            try:
+                dt = datetime.fromisoformat(detected_at.replace('Z', '+00:00'))
+                date_str = dt.strftime('%Y-%m-%d %H:%M UTC')
+            except:
+                date_str = detected_at[:16] if len(detected_at) >= 16 else detected_at
+        else:
+            date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+        
+        # Extract error type from result text for failed statuses
+        error_type = "N/A"
+        if status.lower() in ('failed', 'error'):
+            if 'maestro' in result_text.lower() or 'flow' in result_text.lower():
+                error_type = "Maestro Flow Error"
+            elif 'selector' in result_text.lower() or 'element' in result_text.lower() or 'button' in result_text.lower():
+                error_type = "Frontend UI Error"
+            elif 'schema' in result_text.lower():
+                error_type = "Schema Mismatch"
+            elif 'api' in result_text.lower() or 'payload' in result_text.lower():
+                error_type = "API Error"
+            elif 'credit' in result_text.lower() or 'cost' in result_text.lower():
+                error_type = "Credit Calculation Error"
+            else:
+                error_type = "General Error"
+        
+        # Extract test stats from result_text or entry
+        tests_total = entry.get('testsTotal', 0)
+        tests_passed = entry.get('testsPassed', 0)
+        tests_failed = entry.get('testsFailed', 0)
+        
+        # Try to parse from result_text if not in entry
+        if not tests_total and result_text:
+            import re
+            m = re.search(r'(\d+)/(\d+)\s*(?:passed|tests?)', result_text, re.I)
+            if m:
+                tests_passed = int(m.group(1))
+                tests_total = int(m.group(2))
+                tests_failed = tests_total - tests_passed
+            m2 = re.search(r'(\d+)\s*failed', result_text, re.I)
+            if m2:
+                tests_failed = int(m2.group(1))
+        
         lines = [
             f"📦 Commit Update — {repo.title()}",
             f"",
             f"**Status:** {result_label}",
             f"**Project:** {repo}",
             f"**Branch:** {branch}",
+            f"**Date:** {date_str}",
+        ]
+        
+        if status.lower() in ('failed', 'error'):
+            lines.append(f"**Error Type:** {error_type}")
+        
+        lines.extend([
             f"**What Changed:** {commit_msg}",
             f"**Files Modified:** {file_count} file{'s' if file_count != 1 else ''}",
-        ]
+        ])
+        
+        # Add test stats if available
+        if tests_total > 0:
+            lines.append(f"**Tests Run:** {tests_total} total | ✅ {tests_passed} passed | ❌ {tests_failed} failed")
         
         if result_text:
             # Keep it brief for non-tech people
@@ -314,13 +372,23 @@ def build_summary_message(entry, result_text="", technical=True):
         return '\n'.join(lines)
 
 
-def build_test_failure_message(project, test_type, error_type, description, action_taken="", status="failed", technical=True):
+def build_test_failure_message(project, test_type, error_type, description, action_taken="", status="failed", technical=True, tests_total=0, tests_passed=0, tests_failed=0, detected_at=""):
     """
     Build test failure message.
     technical=True  -> Full details for Webhook 1
     technical=False -> Clean summary for Webhook 2
     """
     status_emoji = '❌' if status.lower() == 'failed' else '✅'
+    
+    # Format date
+    if detected_at:
+        try:
+            dt = datetime.fromisoformat(detected_at.replace('Z', '+00:00'))
+            date_str = dt.strftime('%Y-%m-%d %H:%M UTC')
+        except:
+            date_str = detected_at[:16] if len(detected_at) >= 16 else detected_at
+    else:
+        date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
     
     if technical:
         # Technical format — full details
@@ -331,10 +399,15 @@ def build_test_failure_message(project, test_type, error_type, description, acti
             f"**Project:** {project}",
             f"**Test Type:** {test_type}",
             f"**Error Type:** {error_type}",
+            f"**Date:** {date_str}",
+        ]
+        if tests_total > 0:
+            lines.append(f"**Tests:** {tests_total} total | ✅ {tests_passed} passed | ❌ {tests_failed} failed")
+        lines.extend([
             f"",
             f"**Description:**",
             description,
-        ]
+        ])
         if action_taken:
             lines.append(f"")
             lines.append(f"**Action Taken:** {action_taken}")
@@ -349,12 +422,17 @@ def build_test_failure_message(project, test_type, error_type, description, acti
             f"",
             f"**Status:** {status_emoji} {'Failed' if status.lower() == 'failed' else 'Passed'}",
             f"**Project:** {project}",
+            f"**Date:** {date_str}",
             f"**Test Type:** {test_type}",
             f"**Error Type:** {error_type}",
+        ]
+        if tests_total > 0:
+            lines.append(f"**Tests Run:** {tests_total} total | ✅ {tests_passed} passed | ❌ {tests_failed} failed")
+        lines.extend([
             f"",
             f"**What Happened:**",
             description,
-        ]
+        ])
         if action_taken:
             lines.append(f"")
             lines.append(f"**Action Taken:** {action_taken}")
@@ -422,6 +500,109 @@ def main():
         print("")
         print("=== SUMMARY MESSAGE (Webhook 2) ===")
         print(message_summary)
+    
+    elif cmd == "daily":
+        if len(sys.argv) < 9:
+            print("Usage: discord-summary.py daily <date> <desktop_pass> <desktop_fail> <mobile_pass> <mobile_fail> <total_products> <run_dir> [log_dir]")
+            sys.exit(1)
+        
+        date_str = sys.argv[2]
+        desktop_pass = int(sys.argv[3])
+        desktop_fail = int(sys.argv[4])
+        mobile_pass = int(sys.argv[5])
+        mobile_fail = int(sys.argv[6])
+        total_products = int(sys.argv[7])
+        run_dir = sys.argv[8]
+        log_dir = sys.argv[9] if len(sys.argv) > 9 else run_dir
+        
+        total_pass = desktop_pass + mobile_pass
+        total_fail = desktop_fail + mobile_fail
+        
+        # Build technical message for Webhook 1
+        tech_lines = [
+            f"📅 Daily Maestro Tests — {date_str}",
+            f"",
+            f"**Products:** {total_products}",
+            f"**Desktop:** {desktop_pass} passed, {desktop_fail} failed",
+            f"**Mobile:** {mobile_pass} passed, {mobile_fail} failed",
+            f"**Total:** {total_pass} passed, {total_fail} failed",
+            f"",
+            f"**Run Directory:** {run_dir}",
+        ]
+        
+        # Add log file summaries for technical webhook
+        if log_dir and os.path.isdir(log_dir):
+            tech_lines.append(f"**Log Files:**")
+            for log_file in sorted(os.listdir(log_dir)):
+                if log_file.endswith('.log'):
+                    log_path = os.path.join(log_dir, log_file)
+                    tech_lines.append(f"- {log_file}")
+                    try:
+                        with open(log_path, 'r') as f:
+                            lines = f.readlines()[-20:]
+                            if lines:
+                                tech_lines.append("```")
+                                tech_lines.extend([l.rstrip() for l in lines])
+                                tech_lines.append("```")
+                    except:
+                        pass
+        
+        tech_msg = '\n'.join(tech_lines)
+        
+        # Build clean summary message for Webhook 2
+        status_emoji = "✅" if total_fail == 0 else "❌"
+        status_text = "All Passed" if total_fail == 0 else f"{total_fail} Failed"
+        
+        summary_lines = [
+            f"📅 Daily Maestro Tests — {date_str}",
+            f"",
+            f"**Status:** {status_emoji} {status_text}",
+            f"**Date:** {date_str}",
+            f"**Products:** {total_products}",
+            f"**Tests:** {total_pass} passed | {total_fail} failed",
+            f"**Desktop:** ✅ {desktop_pass} | ❌ {desktop_fail}",
+            f"**Mobile:** ✅ {mobile_pass} | ❌ {mobile_fail}",
+        ]
+        
+        # Extract error types from log files for summary
+        if total_fail > 0 and log_dir and os.path.isdir(log_dir):
+            error_types = set()
+            for log_file in os.listdir(log_dir):
+                if log_file.endswith('.log'):
+                    log_path = os.path.join(log_dir, log_file)
+                    try:
+                        with open(log_path, 'r') as f:
+                            content = f.read()
+                            if 'command not found' in content:
+                                error_types.add("Command Not Found")
+                            if 'Chrome instance exited' in content or 'ChromeDriver' in content or 'UnreachableBrowserException' in content:
+                                error_types.add("Chrome/CDP Error")
+                            if 'TimeoutException' in content:
+                                error_types.add("Timeout")
+                            if 'assert' in content and 'failed' in content:
+                                error_types.add("Assertion Failed")
+                            if 'maestro:' in content and 'command not found' not in content:
+                                error_types.add("Maestro Error")
+                    except:
+                        pass
+            
+            if error_types:
+                summary_lines.append(f"**Error Types:** {', '.join(sorted(error_types))}")
+            else:
+                summary_lines.append(f"**Error Types:** Unknown")
+        
+        summary_msg = '\n'.join(summary_lines)
+        
+        print("=== TECHNICAL MESSAGE (Webhook 1) ===")
+        print(tech_msg)
+        print("")
+        print("=== SUMMARY MESSAGE (Webhook 2) ===")
+        print(summary_msg)
+        print("=== SENDING ===")
+        
+        success = send_to_both(tech_msg, summary_msg, "Daily Maestro Tests")
+        if not success:
+            sys.exit(1)
     
     elif cmd == "custom":
         if len(sys.argv) < 3:

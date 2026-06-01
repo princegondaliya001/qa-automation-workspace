@@ -152,12 +152,18 @@ echo "  Total:   $((DESKTOP_PASS + MOBILE_PASS)) passed, $((DESKTOP_FAIL + MOBIL
 echo "  Run dir: $RUN_DIR"
 echo "════════════════════════════════════════════════════════════════"
 
-# Send Discord summary
+# Send Discord summary — dual webhook format
+# Webhook 1: Full technical details | Webhook 2: Clean summary only
 python3 "$WORKSPACE_DIR/scripts/discord-summary.py" \
-    --channel "$DISCORD_CHANNEL" \
-    --title "Daily Maestro Tests — $(date +%Y-%m-%d)" \
-    --status "Desktop: $DESKTOP_PASS/$TOTAL_PRODUCTS | Mobile: $MOBILE_PASS/$TOTAL_PRODUCTS" \
-    --details "Run: $RUN_DIR" \
+    daily \
+    "$(date +%Y-%m-%d)" \
+    "$DESKTOP_PASS" \
+    "$DESKTOP_FAIL" \
+    "$MOBILE_PASS" \
+    "$MOBILE_FAIL" \
+    "$TOTAL_PRODUCTS" \
+    "$RUN_DIR" \
+    "$RUN_DIR" \
     || echo "⚠️ Discord summary failed"
 
 # If failures, trigger Captain Hook alert
