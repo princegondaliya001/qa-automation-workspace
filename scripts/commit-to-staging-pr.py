@@ -47,11 +47,11 @@ REPO_BASE = "/root/.openclaw/workspace/repos"
 
 # Branch → production base branch mapping
 BRANCH_TO_BASE = {
-    "chroma-studio-frontend-nextjs": {"dev": "main", "main": None},
+    "chroma-studio-frontend-nextjs": {"dev": "main", "main": None, "git-diff-maestro-test": None},
     "max-v2": {"dev": "master", "master": None},
     "remix-studio-nextjs": {"dev": "main", "main": None},
     "deepswapper-ai-nextjs": {"dev": "main", "main": None},
-    "faceswapper-ai": {"dev": "maestro-test", "maestro-test": None},
+    "faceswapper-ai": {"dev": "master", "master": None, "maestro-test": None},
     "ampere-sh": {"dev": "main", "main": None},
 }
 
