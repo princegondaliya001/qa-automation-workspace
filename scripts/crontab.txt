@@ -1,0 +1,30 @@
+# OpenClaw Workspace Cron Jobs
+# Paste this into your crontab with: crontab -e
+# Or load it with: cat crontab-setup.txt | crontab -
+
+# 1. Commit Watcher: Check frontend repos every 1 hour for new commits
+#    Also auto-processes simple changes (header labels, etc.)
+0 * * * * /root/.openclaw/workspace/scripts/commit-watcher.sh >> /root/.openclaw/workspace/logs/commit-watcher.log 2>&1
+
+# 2. Dev Sync: Sync dev branch from main/master every 2 hours
+0 */2 * * * /root/.openclaw/workspace/scripts/sync-dev-from-main.sh >> /root/.openclaw/workspace/logs/dev-sync-cron.log 2>&1
+
+# 3. Maestro Validation: Check all YAML flows every 4 hours
+0 */4 * * * cd /root/.openclaw/workspace && python3 scripts/validation-agent.py validate --output /root/.openclaw/workspace/logs/validation-report.json >> /root/.openclaw/workspace/logs/validation-agent.log 2>&1
+
+# 4. Daily All-Projects Maestro Tests: Run every day at 8 PM IST (14:30 UTC)
+30 14 * * * /root/.openclaw/workspace/scripts/daily-maestro-tests.sh >> /root/.openclaw/workspace/logs/daily-tests.log 2>&1
+
+# 5. Safe Cleanup: Remove old temp files, screenshots, logs daily at 2 AM
+0 2 * * * /root/.openclaw/workspace/scripts/safe-cleanup.sh >> /root/.openclaw/workspace/logs/safe-cleanup.log 2>&1
+
+# 6. VNC Server: Ensure noVNC is running (check every 5 min)
+*/5 * * * * pgrep -f 'websockify.*6080' > /dev/null || bash /root/.openclaw/workspace/scripts/start-vnc.sh >> /root/.openclaw/workspace/logs/vnc-cron.log 2>&1
+
+# 7. CPU Cleanup: Run only after main work scripts finish (not every 10 min)
+#    - After commit watcher: 5 min past each hour
+#    - After daily tests: 5 min after tests finish (14:35)
+#    - After dev sync: 5 min past each 2-hour mark
+5 * * * * bash /root/.openclaw/workspace/scripts/kill-idle-processes.sh >> /root/.openclaw/workspace/logs/idle-cleanup.log 2>&1
+5 */2 * * * bash /root/.openclaw/workspace/scripts/kill-idle-processes.sh >> /root/.openclaw/workspace/logs/idle-cleanup.log 2>&1
+35 14 * * * bash /root/.openclaw/workspace/scripts/kill-idle-processes.sh >> /root/.openclaw/workspace/logs/idle-cleanup.log 2>&1
