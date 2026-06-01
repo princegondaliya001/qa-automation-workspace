@@ -31,23 +31,30 @@ done
 echo "=== Fetch complete ==="
 echo ""
 
+# Step 2b: Pull latest dev to local repos (always, not just when pending)
+echo "=== Pulling latest dev to local repos ==="
+for repo_dir in "$REPO_BASE"/*/; do
+    if [ -d "$repo_dir/.git" ]; then
+        repo_name=$(basename "$repo_dir")
+        if [ "$repo_name" = "agentmemory" ]; then
+            continue
+        fi
+        current_branch=$(git -C "$repo_dir" branch --show-current 2>/dev/null || echo "dev")
+        echo "  Pulling $repo_name ($current_branch)..."
+        timeout 30 git -C "$repo_dir" pull origin "$current_branch" 2>/dev/null || echo "    ⚠️ pull failed for $repo_name"
+    fi
+done
+echo "=== Pull complete ==="
+echo ""
+
 # Step 2: Run the Python watcher (now sees remote commits)
 python3 "$SCRIPT_DIR/commit-watcher-update.py" check "$STATE_FILE" "$QUEUE_FILE" "$REPO_BASE" "$DISCORD_CHANNEL"
 
-# Step 3: If new commits detected, ensure repos are pulled to latest
+# Step 3: If new commits detected, ensure repos are pulled to latest (already done above, but double-check)
 if [ -f "$QUEUE_FILE" ]; then
     PENDING=$(python3 "$SCRIPT_DIR/queue-auto-process.py" check | grep -c '"has_pending": true' || true)
     if [ "$PENDING" -gt 0 ]; then
-        echo "=== Pulling latest for repos with pending commits ==="
-        for repo_dir in "$REPO_BASE"/*/; do
-            if [ -d "$repo_dir/.git" ]; then
-                repo_name=$(basename "$repo_dir")
-                current_branch=$(git -C "$repo_dir" branch --show-current 2>/dev/null || echo "main")
-                echo "  Pulling $repo_name ($current_branch)..."
-                timeout 30 git -C "$repo_dir" pull origin "$current_branch" 2>/dev/null || echo "    ⚠️ pull failed for $repo_name"
-            fi
-        done
-        echo "=== Pull complete ==="
+        echo "=== New commits detected, repos already pulled to latest ==="
     fi
 fi
 
