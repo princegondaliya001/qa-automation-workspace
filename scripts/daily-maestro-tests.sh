@@ -18,8 +18,13 @@ DISCORD_CHANNEL="1498991059227774986"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 RUN_DIR="$STATE_DIR/maestro-daily-tests/$TIMESTAMP"
 mkdir -p "$RUN_DIR"
+mkdir -p "$LOGS_DIR"
+LOG_FILE="$LOGS_DIR/daily-maestro-tests-${TIMESTAMP}.log"
 
-LOG_FILE="$RUN_DIR/daily-run.log"
+# Cron-safe: use full path to maestro binary
+MAESTRO_BIN="/root/.maestro/bin/maestro"
+export PATH="/root/.maestro/bin:$PATH"
+
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "=== Daily Maestro Tests Started at $(date -Iseconds) ==="
@@ -60,12 +65,12 @@ run_tests() {
         
         if [ -n "$DESKTOP_SMOKE" ]; then
             echo "    Running: $(basename "$DESKTOP_SMOKE")"
-            if maestro test "$DESKTOP_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-desktop.log"; then
+            if "$MAESTRO_BIN" test "$DESKTOP_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-desktop.log"; then
                 echo "    ✅ DESKTOP PASS"
-                ((DESKTOP_PASS++))
+                DESKTOP_PASS=$((DESKTOP_PASS + 1))
             else
                 echo "    ❌ DESKTOP FAIL"
-                ((DESKTOP_FAIL++))
+                DESKTOP_FAIL=$((DESKTOP_FAIL + 1))
             fi
         else
             echo "    ⚠️ No desktop master test found"
@@ -83,12 +88,12 @@ run_tests() {
         MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" -name "*master*" | head -1)
         if [ -n "$MOBILE_SMOKE" ]; then
             echo "    Running: $(basename "$MOBILE_SMOKE")"
-            if maestro test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
+            if "$MAESTRO_BIN" test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
                 echo "    ✅ MOBILE PASS"
-                ((MOBILE_PASS++))
+                MOBILE_PASS=$((MOBILE_PASS + 1))
             else
                 echo "    ❌ MOBILE FAIL"
-                ((MOBILE_FAIL++))
+                MOBILE_FAIL=$((MOBILE_FAIL + 1))
             fi
         else
             echo "    ⚠️ No mobile master test found"
@@ -98,12 +103,12 @@ run_tests() {
         MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" -name "*smoke*" -o -name "*waydroid*" | head -1)
         if [ -n "$MOBILE_SMOKE" ]; then
             echo "    Running: $(basename "$MOBILE_SMOKE")"
-            if maestro test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
+            if "$MAESTRO_BIN" test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
                 echo "    ✅ MOBILE PASS"
-                ((MOBILE_PASS++))
+                MOBILE_PASS=$((MOBILE_PASS + 1))
             else
                 echo "    ❌ MOBILE FAIL"
-                ((MOBILE_FAIL++))
+                MOBILE_FAIL=$((MOBILE_FAIL + 1))
             fi
         else
             echo "    ⚠️ No mobile scenario test found"
@@ -113,12 +118,12 @@ run_tests() {
         MOBILE_SMOKE=$(ls "$MAESTRO_REPO/$FOLDER/tests/"*mobile*smoke.yaml 2>/dev/null | head -1)
         if [ -n "$MOBILE_SMOKE" ]; then
             echo "    Running: $(basename "$MOBILE_SMOKE")"
-            if maestro test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
+            if "$MAESTRO_BIN" test "$MOBILE_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-mobile.log"; then
                 echo "    ✅ MOBILE PASS"
-                ((MOBILE_PASS++))
+                MOBILE_PASS=$((MOBILE_PASS + 1))
             else
                 echo "    ❌ MOBILE FAIL"
-                ((MOBILE_FAIL++))
+                MOBILE_FAIL=$((MOBILE_FAIL + 1))
             fi
         else
             echo "    ⚠️ No mobile smoke test found"
@@ -127,7 +132,7 @@ run_tests() {
         echo "    ⚠️ No mobile flows folder"
     fi
     
-    ((TOTAL_PRODUCTS++))
+    TOTAL_PRODUCTS=$((TOTAL_PRODUCTS + 1))
 }
 
 # Run tests for all products
