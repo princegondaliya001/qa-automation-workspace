@@ -30,4 +30,6 @@ echo "  TestUrl: $TESTURL"
 echo "  Flow:    $FLOW_PATH"
 echo ""
 
+export PATH="/root/.maestro/bin:$PATH"
+
 maestro test "$FLOW_PATH" --env baseUrl="$TESTURL"

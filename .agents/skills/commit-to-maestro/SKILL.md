@@ -39,9 +39,30 @@ Maps repo names to their Maestro folder, base URL, and project ID header.
 | `ampere-sh` | `ampere` | `https://ampere.sh` | `https://ampere-sh-5px3-git-dev-paradoxs-projects-657e7e56.vercel.app` | `ampere` |
 
 > **Daily cron jobs always use production URLs.** The `testUrl` field is only for commit-watcher triggered testing.
-> 1. Listing `repos/maestro-studio/` directories
-> 2. Finding matching frontend repos in `repos/`
-> 3. Asking the user for the mapping if ambiguous
+
+## ⚠️ Config.yaml Guard Rule (CRITICAL)
+
+Before any git commit in maestro-studio, run the guard script:
+
+```bash
+./scripts/config-guard.sh
+```
+
+Or manually:
+```bash
+grep -r "baseUrl" repos/maestro-studio/*/config/config.yaml | grep -v "www.chromastudio.ai\|www.maxstudio.ai\|remixai.io\|faceswapper.ai\|deepswapper.com\|ampere.sh\|localhost"
+```
+
+If ANY result is found → **ABORT the commit**, revert config.yaml, and investigate.
+
+### Environment Separation Rules
+
+1. **Temp tests MUST use `--env baseUrl=<testUrl>` or inline `openLink` with testUrl.** NEVER `sed` config.yaml and leave it changed.
+2. **If you must temporarily change config.yaml for a local test, ALWAYS revert it before `git add`.**
+3. **Daily cron scripts are production-only** and never read from the commit queue or staging URLs.
+4. **Commit-watcher dev branch tests run ONLY against staging URLs** via `--env` or inline `openLink`, never via config.yaml mutation.
+
+> These rules exist because a single committed staging URL causes daily cron jobs to run against Vercel preview deploys instead of production, which invalidates all test results and wastes API credits.
 
 ## Workflow
 
@@ -131,25 +152,28 @@ Create a focused temp test that exercises the changed functionality.
 - `main`/`master` → production URL
 - `dev` → staging URL (Vercel preview deploy)
 
+**Preferred approach (no config.yaml mutation):**
 ```yaml
 # <maestro_folder>/tests/temp-test-<repo>-<short_hash>.yaml
-appId: <app-id>
+appId: web
 ---
 - openLink: "<testUrl>?__maestroInternalMode=1"
 - assertVisible: { selector: "[data-maestro='changed-element']" }
 # ... steps that specifically test the changed behavior
 ```
 
-If the queue entry's `testUrl` differs from the current `config.yaml` baseUrl, update `config.yaml` before running the test:
-
+Run it with the env override if the inline `openLink` is not sufficient:
 ```bash
-cd /root/.openclaw/workspace/repos/maestro-studio/<maestro_folder>
-sed -i "s|baseUrl: .*|baseUrl: <testUrl>|" config/config.yaml
+cd /root/.openclaw/workspace/repos/maestro-studio
+maestro test <maestro_folder>/tests/temp-test-<repo>-<short_hash>.yaml --env baseUrl=<testUrl>
 ```
 
-Run it if Maestro CLI is available. If not, skip and note "Maestro CLI not available" in the summary.
+> **CRITICAL:** NEVER `sed` config.yaml to change the baseUrl. Staging URLs must never be committed. If you accidentally change config.yaml, revert it before staging:
+> ```bash
+> git checkout -- <maestro_folder>/config/config.yaml
+> ```
 
-> **Important:** Only change `config.yaml` for the temp test. Do NOT commit `config.yaml` with a staging URL — either revert it after testing, or leave it unchanged and use `--env baseUrl=<testUrl>` when running `maestro test`.
+Run it if Maestro CLI is available. If not, skip and note "Maestro CLI not available" in the summary.
 
 ### 7. Commit and Push
 
@@ -163,6 +187,8 @@ git add <maestro_folder>/schema/...
 # etc.
 
 # NEVER use `git add .`
+# ⚠️ NEVER stage config.yaml if it contains a staging URL. If you accidentally
+# changed it, revert first: git checkout -- <maestro_folder>/config/config.yaml
 
 git commit -m "test: update Maestro for <repo>/<branch> <short_hash> - <commit_message>"
 git push origin main
@@ -260,6 +286,7 @@ If more pending entries exist, loop back to step 1 and process the next one **se
 5. **FIFO/sequential processing.** One queue entry at a time unless user explicitly requests parallel.
 6. **Minimal changes.** Don't rewrite flows — update selectors, add assertions, or create small shared helpers.
 7. **Security review if uncertain.** If the diff touches auth, API routes, webhooks, or payment flows, pause and ask Prince before proceeding.
+8. **Config.yaml guard.** Run `scripts/config-guard.sh` before any commit. If it fails, abort and revert staging URLs.
 
 ## Bundled Scripts
 

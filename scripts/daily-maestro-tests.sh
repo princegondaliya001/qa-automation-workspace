@@ -75,8 +75,26 @@ run_tests() {
     # --- DESKTOP TEST ---
     echo ""
     echo "  [DESKTOP] $PRODUCT_NAME"
+    DESKTOP_SMOKE=""
     if [ -d "$MAESTRO_REPO/$FOLDER/flows/masters" ]; then
-        DESKTOP_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/flows/masters" -type f \( -name "*master-auth*" -o -name "*master-home*" -o -name "*master-smoke*" \) | grep -v -E "ios|mobile" | head -1)
+        # Prefer shorter dedicated daily tests: home first, then auth, then non-required smoke
+        DESKTOP_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/flows/masters" -type f -name "*master-home*" | grep -v -E "ios|mobile" | head -1)
+        if [ -z "$DESKTOP_SMOKE" ]; then
+            DESKTOP_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/flows/masters" -type f -name "*master-auth*" | grep -v -E "ios|mobile" | head -1)
+        fi
+        if [ -z "$DESKTOP_SMOKE" ]; then
+            DESKTOP_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/flows/masters" -type f -name "*master-smoke*" | grep -v -E "ios|mobile|required" | head -1)
+        fi
+        if [ -z "$DESKTOP_SMOKE" ]; then
+            DESKTOP_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/flows/masters" -type f -name "*master-smoke*" | grep -v -E "ios|mobile" | head -1)
+        fi
+        # Also check for top-level master files (e.g., deepswapper/master-dynamic.yaml)
+        if [ -z "$DESKTOP_SMOKE" ] && [ -f "$MAESTRO_REPO/$FOLDER/master-dynamic.yaml" ]; then
+            DESKTOP_SMOKE="$MAESTRO_REPO/$FOLDER/master-dynamic.yaml"
+        fi
+        if [ -z "$DESKTOP_SMOKE" ] && [ -f "$MAESTRO_REPO/$FOLDER/tests/*smoke*.yaml" ]; then
+            DESKTOP_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/tests" -type f -name "*smoke*.yaml" | grep -v -E "ios|mobile" | head -1)
+        fi
         
         if [ -n "$DESKTOP_SMOKE" ]; then
             echo "    Running: $(basename "$DESKTOP_SMOKE")"
@@ -90,6 +108,30 @@ run_tests() {
         else
             echo "    ⚠️ No desktop master test found"
         fi
+    elif [ -f "$MAESTRO_REPO/$FOLDER/master-dynamic.yaml" ]; then
+        DESKTOP_SMOKE="$MAESTRO_REPO/$FOLDER/master-dynamic.yaml"
+        echo "    Running: $(basename "$DESKTOP_SMOKE")"
+        if "$MAESTRO_BIN" test "$DESKTOP_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-desktop.log"; then
+            echo "    ✅ DESKTOP PASS"
+            DESKTOP_PASS=$((DESKTOP_PASS + 1))
+        else
+            echo "    ❌ DESKTOP FAIL"
+            DESKTOP_FAIL=$((DESKTOP_FAIL + 1))
+        fi
+    elif [ -d "$MAESTRO_REPO/$FOLDER/tests" ]; then
+        DESKTOP_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/tests" -type f -name "*smoke*.yaml" | grep -v -E "ios|mobile" | head -1)
+        if [ -n "$DESKTOP_SMOKE" ]; then
+            echo "    Running: $(basename "$DESKTOP_SMOKE")"
+            if "$MAESTRO_BIN" test "$DESKTOP_SMOKE" --env baseUrl="$URL" 2>&1 | tee "$RUN_DIR/$FOLDER-desktop.log"; then
+                echo "    ✅ DESKTOP PASS"
+                DESKTOP_PASS=$((DESKTOP_PASS + 1))
+            else
+                echo "    ❌ DESKTOP FAIL"
+                DESKTOP_FAIL=$((DESKTOP_FAIL + 1))
+            fi
+        else
+            echo "    ⚠️ No desktop test found"
+        fi
     else
         echo "    ⚠️ No desktop flows folder"
     fi
@@ -99,17 +141,25 @@ run_tests() {
     echo "  [MOBILE] $PRODUCT_NAME"
     MOBILE_SMOKE=""
     
-    # Prefer Android/Waydroid tests over iOS Safari
+    # Prefer short Android/Waydroid smoke tests
     if [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" ]; then
+        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" -type f \( -name "*waydroid*smoke*" -o -name "*android*smoke*" \) | head -1)
+    fi
+    if [ -z "$MOBILE_SMOKE" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" ]; then
+        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" -type f \( -name "*waydroid*smoke*" -o -name "*android*smoke*" \) | head -1)
+    fi
+    if [ -z "$MOBILE_SMOKE" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" ]; then
         MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" -type f \( -name "*waydroid*" -o -name "*android*" \) | head -1)
     fi
     if [ -z "$MOBILE_SMOKE" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" ]; then
         MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" -type f \( -name "*waydroid*" -o -name "*android*" \) | head -1)
     fi
-    if [ -z "$MOBILE_SMOKE" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" ]; then
-        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" -type f \( -name "*smoke*" \) | head -1)
+    # Skip iOS-only tests for daily runs (they are too long and require iOS simulator)
+    # Only fall back to iOS if explicitly requested via env var
+    if [ -z "$MOBILE_SMOKE" ] && [ -n "$DAILY_TESTS_ALLOW_IOS" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" ]; then
+        MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/scenarios" -type f -name "*smoke*" | head -1)
     fi
-    if [ -z "$MOBILE_SMOKE" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" ]; then
+    if [ -z "$MOBILE_SMOKE" ] && [ -n "$DAILY_TESTS_ALLOW_IOS" ] && [ -d "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" ]; then
         MOBILE_SMOKE=$(find "$MAESTRO_REPO/$FOLDER/mobile/flows/masters" -type f -name "*master*" | head -1)
     fi
     
